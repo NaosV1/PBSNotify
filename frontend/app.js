@@ -20,12 +20,12 @@ async function init() {
 
   // Vérifier le support des notifications
   if (!('serviceWorker' in navigator)) {
-    updateStatus('❌ Service Worker non supporté par ce navigateur');
+    updateStatus('Service Worker non supporté');
     return;
   }
 
   if (!('PushManager' in window)) {
-    updateStatus('❌ Push notifications non supportées par ce navigateur');
+    updateStatus('Notifications push non supportées');
     return;
   }
 
@@ -52,7 +52,7 @@ async function init() {
 
   } catch (error) {
     console.error('[App] Initialization error:', error);
-    updateStatus('❌ Erreur lors de l\'initialisation');
+    updateStatus('Erreur lors de l\'initialisation');
   }
 }
 
@@ -77,12 +77,12 @@ async function checkSubscriptionStatus() {
   isSubscribed = subscription !== null;
 
   if (isSubscribed) {
-    updateStatus('✅ Notifications activées');
-    subscribeBtn.innerHTML = '<span class="btn-text">Désactiver les notifications</span>';
+    updateStatus('Notifications activées');
+    subscribeBtn.textContent = 'Désactiver les notifications';
     subscribeBtn.classList.add('unsubscribe');
   } else {
-    updateStatus('🔕 Notifications désactivées');
-    subscribeBtn.innerHTML = '<span class="btn-text">Activer les notifications</span>';
+    updateStatus('Notifications désactivées');
+    subscribeBtn.textContent = 'Activer les notifications';
     subscribeBtn.classList.remove('unsubscribe');
   }
 }
@@ -93,7 +93,7 @@ async function subscribe() {
     const permission = await Notification.requestPermission();
 
     if (permission !== 'granted') {
-      updateStatus('❌ Permission refusée');
+      updateStatus('Permission refusée');
       return;
     }
 
@@ -122,8 +122,8 @@ async function subscribe() {
 
     if (response.ok) {
       isSubscribed = true;
-      updateStatus('✅ Notifications activées avec succès !');
-      subscribeBtn.innerHTML = '<span class="btn-text">Désactiver les notifications</span>';
+      updateStatus('Notifications activées avec succès');
+      subscribeBtn.textContent = 'Désactiver les notifications';
       subscribeBtn.classList.add('unsubscribe');
       console.log('[App] Subscription saved to server');
     } else {
@@ -132,7 +132,7 @@ async function subscribe() {
 
   } catch (error) {
     console.error('[App] Subscription error:', error);
-    updateStatus('❌ Erreur lors de l\'activation des notifications');
+    updateStatus('Erreur lors de l\'activation');
   }
 }
 
@@ -155,22 +155,22 @@ async function unsubscribe() {
       });
 
       isSubscribed = false;
-      updateStatus('🔕 Notifications désactivées');
-      subscribeBtn.innerHTML = '<span class="btn-text">Activer les notifications</span>';
+      updateStatus('Notifications désactivées');
+      subscribeBtn.textContent = 'Activer les notifications';
       subscribeBtn.classList.remove('unsubscribe');
       console.log('[App] Unsubscribed successfully');
     }
 
   } catch (error) {
     console.error('[App] Unsubscribe error:', error);
-    updateStatus('❌ Erreur lors de la désactivation');
+    updateStatus('Erreur lors de la désactivation');
   }
 }
 
 // === NOTIFICATIONS ===
 async function loadNotifications() {
   try {
-    notificationsList.innerHTML = '<p class="loading">Chargement...</p>';
+    notificationsList.innerHTML = '<div class="loading">Chargement des notifications...</div>';
 
     const response = await fetch(`${API_BASE_URL}/notifications?limit=50`);
     const data = await response.json();
@@ -179,13 +179,13 @@ async function loadNotifications() {
       displayNotifications(data.notifications);
       updateStats(data.notifications);
     } else {
-      notificationsList.innerHTML = '<p class="empty">Aucune notification pour le moment</p>';
+      notificationsList.innerHTML = '<div class="empty">Aucune notification</div>';
       updateStats([]);
     }
 
   } catch (error) {
     console.error('[App] Error loading notifications:', error);
-    notificationsList.innerHTML = '<p class="empty">❌ Erreur lors du chargement</p>';
+    notificationsList.innerHTML = '<div class="empty">Erreur lors du chargement</div>';
   }
 }
 
@@ -194,15 +194,15 @@ function displayNotifications(notifications) {
 
   notifications.forEach(notif => {
     const item = document.createElement('div');
-    item.className = `notification-item ${notif.status}`;
+    item.className = `notification ${notif.status}`;
 
     const date = new Date(notif.timestamp);
     const formattedDate = formatDate(date);
 
     item.innerHTML = `
       <div class="notification-header">
-        <span class="notification-status ${notif.status}">
-          ${notif.status === 'success' ? '✓ Succès' : '✗ Erreur'}
+        <span class="notification-status">
+          ${notif.status === 'success' ? 'Succès' : 'Erreur'}
         </span>
         <span class="notification-time">${formattedDate}</span>
       </div>
@@ -291,10 +291,6 @@ subscribeBtn.addEventListener('click', () => {
 });
 
 refreshBtn.addEventListener('click', () => {
-  refreshBtn.style.transform = 'rotate(360deg)';
-  setTimeout(() => {
-    refreshBtn.style.transform = 'rotate(0deg)';
-  }, 500);
   loadNotifications();
 });
 

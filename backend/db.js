@@ -3,7 +3,10 @@ const path = require('path');
 
 class DatabaseService {
   constructor() {
-    const dbPath = path.join(__dirname, 'notifications.db');
+    // Support pour Docker : utiliser le répertoire data si défini
+    const dbDir = process.env.DB_PATH || __dirname;
+    const dbPath = path.join(dbDir, 'notifications.db');
+    console.log(`📂 Database path: ${dbPath}`);
     this.db = new Database(dbPath);
     this.initTables();
   }

@@ -1,0 +1,58 @@
+# Node modules
+node_modules
+backend/node_modules
+npm-debug.log
+yarn-error.log
+
+# Database files (will be in volume)
+*.db
+*.db-shm
+*.db-wal
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# Environment files
+.env
+backend/.env
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README.md
+PROXMOX_INTEGRATION.md
+
+# Scripts
+*.sh
+test-webhook.sh
+start.sh
+create-icons.sh
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+data/

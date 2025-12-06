@@ -13,26 +13,103 @@ Système de notifications push web pour Proxmox Backup Server (PBS). Reçoit les
 
 ## 📋 Prérequis
 
+**Option Docker (Recommandé) :**
+- Docker et Docker Compose
+- Un serveur Proxmox configuré pour envoyer des webhooks
+
+**Option manuelle :**
 - Node.js 16+
 - npm ou yarn
 - Un serveur Proxmox configuré pour envoyer des webhooks
 
 ## 🔧 Installation
 
-### 1. Cloner le projet
+### Option 1 : Installation avec Docker (Recommandé)
+
+#### 1. Cloner le projet
 
 ```bash
+git clone https://github.com/NaosV1/PBSNotify.git
 cd PBSNotify
 ```
 
-### 2. Installer les dépendances du backend
+#### 2. Générer les clés VAPID
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+#### 3. Configurer les variables d'environnement
+
+Créez un fichier `.env` à la racine du projet :
+
+```bash
+cp .env.example .env
+```
+
+Éditez le fichier `.env` et ajoutez vos clés VAPID :
+
+```env
+VAPID_PUBLIC_KEY=votre_clé_publique
+VAPID_PRIVATE_KEY=votre_clé_privée
+VAPID_SUBJECT=mailto:votre-email@example.com
+PORT=3000
+```
+
+#### 4. Lancer avec Docker Compose
+
+```bash
+docker-compose up -d
+```
+
+L'application sera accessible sur `http://localhost:3000`
+
+#### Commandes utiles Docker
+
+```bash
+# Voir les logs
+docker-compose logs -f
+
+# Arrêter l'application
+docker-compose down
+
+# Reconstruire l'image après des modifications
+docker-compose up -d --build
+
+# Voir le statut
+docker-compose ps
+```
+
+#### Persistance des données
+
+Les notifications et abonnements sont stockés dans le répertoire `./data` qui est monté comme volume Docker. Ce répertoire est créé automatiquement et persiste même si le conteneur est supprimé.
+
+Pour sauvegarder vos données :
+```bash
+# Sauvegarder
+tar -czf pbs-notify-backup.tar.gz data/
+
+# Restaurer
+tar -xzf pbs-notify-backup.tar.gz
+```
+
+### Option 2 : Installation manuelle
+
+#### 1. Cloner le projet
+
+```bash
+git clone https://github.com/NaosV1/PBSNotify.git
+cd PBSNotify
+```
+
+#### 2. Installer les dépendances du backend
 
 ```bash
 cd backend
 npm install
 ```
 
-### 3. Configuration
+#### 3. Configuration
 
 Au premier lancement, le serveur générera automatiquement des clés VAPID. Copiez-les dans un fichier `.env` :
 
@@ -176,6 +253,10 @@ PBSNotify/
 │   ├── service-worker.js   # Service Worker
 │   ├── style.css           # Styles
 │   └── manifest.json       # Configuration PWA
+├── Dockerfile              # Configuration Docker
+├── docker-compose.yml      # Orchestration Docker
+├── .dockerignore           # Fichiers à exclure de Docker
+├── .env.example            # Variables d'environnement
 └── README.md
 ```
 
