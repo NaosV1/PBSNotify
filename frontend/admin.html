@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration - PBS Notify</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--color-border);
+      margin-bottom: 32px;
+    }
+
+    .admin-header h1 {
+      font-size: 24px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 14px;
+      color: var(--color-text-light);
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--color-border);
+      color: var(--color-text);
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+      border-radius: var(--radius);
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover {
+      background: var(--color-bg);
+      border-color: var(--color-error);
+      color: var(--color-error);
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .btn-small {
+      padding: 8px 16px;
+      font-size: 14px;
+      border-radius: var(--radius);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-add {
+      background: var(--color-success);
+      color: white;
+    }
+
+    .btn-add:hover {
+      opacity: 0.9;
+    }
+
+    .tokens-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+
+    .tokens-table th,
+    .tokens-table td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .tokens-table th {
+      background: var(--color-bg);
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--color-text-light);
+    }
+
+    .tokens-table td {
+      font-size: 14px;
+    }
+
+    .token-value {
+      font-family: monospace;
+      background: var(--color-bg);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-block;
+    }
+
+    .token-value:hover {
+      background: var(--color-border);
+    }
+
+    .token-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-icon {
+      padding: 6px 12px;
+      font-size: 12px;
+      border: 1px solid var(--color-border);
+      background: transparent;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+      background: var(--color-bg);
+    }
+
+    .btn-icon.delete:hover {
+      border-color: var(--color-error);
+      color: var(--color-error);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .badge.active {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .badge.inactive {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      padding: 32px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    .form-group small {
+      color: var(--color-text-light);
+      font-size: 12px;
+      display: block;
+      margin-top: 4px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--color-text-light);
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: var(--color-primary);
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    .back-link:hover {
+      text-decoration: underline;
+    }
+
+    .success-box {
+      background: var(--color-bg);
+      border: 1px solid var(--color-success);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .success-box h4 {
+      color: var(--color-success);
+      margin-bottom: 12px;
+    }
+
+    .success-box pre {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="back-link">← Retour au tableau de bord</a>
+
+    <div class="admin-header">
+      <h1>Administration</h1>
+      <div class="user-info">
+        <span id="username-display"></span>
+        <button class="btn-logout" id="logout-btn">Déconnexion</button>
+      </div>
+    </div>
+
+    <main>
+      <section class="card">
+        <div class="section-title">
+          <h2>Tokens Webhook</h2>
+          <button class="btn-small btn-add" id="add-token-btn">+ Nouveau token</button>
+        </div>
+
+        <div id="tokens-container">
+          <div class="loading">Chargement des tokens...</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal pour créer un token -->
+  <div class="modal" id="token-modal">
+    <div class="modal-content">
+      <div class="modal-header">Nouveau token webhook</div>
+      <form id="token-form">
+        <div class="form-group">
+          <label for="token-name">Nom du token</label>
+          <input type="text" id="token-name" required placeholder="Ex: Proxmox PBS">
+          <small>Nom descriptif pour identifier ce token</small>
+        </div>
+
+        <div class="form-group">
+          <label for="token-ip">Whitelist IP (optionnel)</label>
+          <input type="text" id="token-ip" placeholder="Ex: 192.168.1.100,10.0.0.5 ou *">
+          <small>IPs autorisées séparées par des virgules, ou * pour toutes</small>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn-small" id="cancel-token-btn">Annuler</button>
+          <button type="submit" class="btn-small btn-add">Créer</button>
+        </div>
+      </form>
+
+      <div id="token-result" style="display: none;">
+        <div class="success-box">
+          <h4>✓ Token créé avec succès !</h4>
+          <p><strong>Token:</strong></p>
+          <pre id="new-token-value"></pre>
+          <p><strong>Exemple d'utilisation:</strong></p>
+          <pre id="curl-example"></pre>
+          <small>⚠️ Copiez ce token maintenant, vous ne pourrez plus le voir après.</small>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" id="close-modal-btn">Fermer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>

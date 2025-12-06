@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion - PBS Notify</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--color-bg);
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 20px;
+    }
+
+    .login-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 40px;
+      box-shadow: var(--shadow-hover);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .login-header h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .login-header p {
+      color: var(--color-text-light);
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--color-text);
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    .error-message {
+      background: #fee;
+      color: #c00;
+      padding: 12px;
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .error-message.show {
+      display: block;
+    }
+
+    .form-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 12px;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--color-text-light);
+      transition: all 0.2s;
+    }
+
+    .tab-button.active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+    }
+
+    .tab-button:hover {
+      color: var(--color-text);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>PBS Notify</h1>
+        <p>Administration</p>
+      </div>
+
+      <div class="form-tabs">
+        <button class="tab-button active" data-tab="login">Connexion</button>
+        <button class="tab-button" data-tab="register">Inscription</button>
+      </div>
+
+      <div class="error-message" id="error-message"></div>
+
+      <form id="auth-form">
+        <div class="form-group">
+          <label for="username">Nom d'utilisateur</label>
+          <input type="text" id="username" name="username" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Mot de passe</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="btn" id="submit-btn">Se connecter</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE_URL = window.location.origin;
+    let currentMode = 'login';
+
+    const form = document.getElementById('auth-form');
+    const errorMessage = document.getElementById('error-message');
+    const submitBtn = document.getElementById('submit-btn');
+    const tabButtons = document.querySelectorAll('.tab-button');
+
+    // Gérer les onglets
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const tab = button.dataset.tab;
+        currentMode = tab;
+
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+
+        submitBtn.textContent = tab === 'login' ? 'Se connecter' : 'S\'inscrire';
+        errorMessage.classList.remove('show');
+      });
+    });
+
+    // Gérer la soumission du formulaire
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      errorMessage.classList.remove('show');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Chargement...';
+
+      try {
+        const endpoint = currentMode === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Une erreur est survenue');
+        }
+
+        // Sauvegarder le token
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('username', data.user.username);
+
+        // Rediriger vers le panneau admin
+        window.location.href = '/admin.html';
+
+      } catch (error) {
+        errorMessage.textContent = error.message;
+        errorMessage.classList.add('show');
+        submitBtn.disabled = false;
+        submitBtn.textContent = currentMode === 'login' ? 'Se connecter' : 'S\'inscrire';
+      }
+    });
+
+    // Vérifier si déjà connecté
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      fetch(`${API_BASE_URL}/api/auth/verify`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.valid) {
+          window.location.href = '/admin.html';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

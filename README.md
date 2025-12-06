@@ -4,10 +4,13 @@ Système de notifications push web pour Proxmox Backup Server (PBS). Reçoit les
 
 ## 🚀 Fonctionnalités
 
-- **Webhook** pour recevoir les notifications de Proxmox
+- **Webhook sécurisé** pour recevoir les notifications de Proxmox
+- **Authentification** avec gestion des utilisateurs
+- **Tokens webhook** avec whitelist IP
 - **Base de données SQLite** pour stocker l'historique
 - **Push Web Notifications** avec VAPID
 - **PWA (Progressive Web App)** installable
+- **Interface d'administration** pour gérer les tokens
 - **Interface moderne** avec statistiques et historique
 - **Support multi-appareils** (tous les abonnés reçoivent les notifications)
 
@@ -33,10 +36,14 @@ git clone https://github.com/NaosV1/PBSNotify.git
 cd PBSNotify
 ```
 
-#### 2. Générer les clés VAPID
+#### 2. Générer les clés VAPID et JWT Secret
 
 ```bash
+# Générer les clés VAPID
 npx web-push generate-vapid-keys
+
+# Générer le JWT Secret
+openssl rand -hex 32
 ```
 
 #### 3. Configurer les variables d'environnement
@@ -47,12 +54,13 @@ Créez un fichier `.env` à la racine du projet :
 cp .env.example .env
 ```
 
-Éditez le fichier `.env` et ajoutez vos clés VAPID :
+Éditez le fichier `.env` et ajoutez vos clés :
 
 ```env
 VAPID_PUBLIC_KEY=votre_clé_publique
 VAPID_PRIVATE_KEY=votre_clé_privée
 VAPID_SUBJECT=mailto:votre-email@example.com
+JWT_SECRET=votre_jwt_secret
 PORT=3000
 ```
 
@@ -185,28 +193,137 @@ curl -X POST http://localhost:3000/webhook \
 
 ## 🎯 Utilisation
 
-1. **Accédez à l'interface web** : `http://localhost:3000`
+### 1. Première connexion et création de compte
 
-2. **Activez les notifications** :
-   - Cliquez sur "Activer les notifications"
-   - Acceptez la permission dans le navigateur
-   - Vous êtes maintenant abonné !
+Accédez à `http://localhost:3000/login.html` et créez votre premier compte administrateur.
 
-3. **Testez** :
-   ```bash
-   curl -X POST http://localhost:3000/webhook \
-     -H "Content-Type: application/json" \
-     -d '{"message": "Test notification", "status": "success"}'
-   ```
+### 2. Créer un token webhook
 
-4. **Installez la PWA** (optionnel) :
-   - Sur Chrome/Edge : cliquez sur l'icône d'installation dans la barre d'adresse
-   - Sur mobile : "Ajouter à l'écran d'accueil"
+1. Connectez-vous à l'administration : `http://localhost:3000/admin.html`
+2. Cliquez sur **"+ Nouveau token"**
+3. Donnez un nom au token (ex: "Proxmox PBS")
+4. (Optionnel) Ajoutez des IPs autorisées séparées par des virgules
+   - Exemple : `192.168.1.100,192.168.1.101`
+   - Ou `*` pour autoriser toutes les IPs
+5. Cliquez sur **"Créer"**
+6. **Copiez le token** (vous ne pourrez plus le voir après)
+
+### 3. Configurer le webhook dans Proxmox
+
+Utilisez le token créé dans votre requête webhook :
+
+```bash
+curl -X POST http://votre-serveur:3000/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-Webhook-Token: VOTRE_TOKEN_ICI" \
+  -d '{"message": "Test notification", "status": "success"}'
+```
+
+Ou en utilisant le paramètre URL :
+
+```bash
+curl -X POST "http://votre-serveur:3000/webhook?token=VOTRE_TOKEN_ICI" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Test notification", "status": "success"}'
+```
+
+### 4. Activer les notifications push
+
+1. Accédez à l'interface principale : `http://localhost:3000`
+2. Cliquez sur **"Activer les notifications"**
+3. Acceptez la permission dans le navigateur
+4. Vous recevrez maintenant les notifications !
+
+### 5. Installer la PWA (optionnel)
+
+- Sur Chrome/Edge : cliquez sur l'icône d'installation dans la barre d'adresse
+- Sur mobile : "Ajouter à l'écran d'accueil"
 
 ## 🔌 API Endpoints
 
-### POST /webhook
+### Authentification
+
+#### POST /api/auth/register
+Créer un nouveau compte administrateur
+
+**Body:**
+```json
+{
+  "username": "admin",
+  "password": "votre_mot_de_passe"
+}
+```
+
+#### POST /api/auth/login
+Se connecter et obtenir un token JWT
+
+**Body:**
+```json
+{
+  "username": "admin",
+  "password": "votre_mot_de_passe"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "token": "jwt_token_here",
+  "user": { "id": 1, "username": "admin" }
+}
+```
+
+#### GET /api/auth/verify
+Vérifier la validité d'un token JWT
+
+**Headers:** `Authorization: Bearer <token>`
+
+### Gestion des tokens webhook (nécessite authentification)
+
+#### GET /api/webhook-tokens
+Liste tous les tokens webhook
+
+**Headers:** `Authorization: Bearer <token>`
+
+#### POST /api/webhook-tokens
+Créer un nouveau token webhook
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Body:**
+```json
+{
+  "name": "Proxmox PBS",
+  "ipWhitelist": "192.168.1.100,192.168.1.101" // optionnel
+}
+```
+
+#### DELETE /api/webhook-tokens/:id
+Supprimer un token webhook
+
+**Headers:** `Authorization: Bearer <token>`
+
+#### PATCH /api/webhook-tokens/:id/toggle
+Activer/désactiver un token webhook
+
+**Headers:** `Authorization: Bearer <token>`
+
+**Body:**
+```json
+{
+  "isActive": true
+}
+```
+
+### Webhook
+
+#### POST /webhook
 Reçoit les notifications de Proxmox
+
+**Headers:**
+- `X-Webhook-Token: <votre_token>` (ou via paramètre `?token=<votre_token>`)
+- `Content-Type: application/json`
 
 **Body:**
 ```json
@@ -242,14 +359,18 @@ Statut du serveur
 ```
 PBSNotify/
 ├── backend/
-│   ├── server.js           # Serveur Express
-│   ├── db.js               # Gestion SQLite
+│   ├── server.js           # Serveur Express avec API
+│   ├── db.js               # Gestion SQLite (users, tokens, notifs)
+│   ├── auth.js             # Authentification JWT et bcrypt
 │   ├── push-service.js     # Service de push notifications
 │   ├── package.json
 │   └── .env.example
 ├── frontend/
-│   ├── index.html          # Interface PWA
-│   ├── app.js              # Logique frontend
+│   ├── index.html          # Interface PWA principale
+│   ├── login.html          # Page de connexion
+│   ├── admin.html          # Panneau d'administration
+│   ├── app.js              # Logique frontend principale
+│   ├── admin.js            # Logique administration
 │   ├── service-worker.js   # Service Worker
 │   ├── style.css           # Styles
 │   └── manifest.json       # Configuration PWA
@@ -291,12 +412,22 @@ webpush.setVapidDetails(
 
 ## 🔒 Sécurité
 
+### Fonctionnalités de sécurité intégrées
+
+- ✅ **Authentification JWT** pour l'accès à l'administration
+- ✅ **Tokens webhook** uniques et révocables
+- ✅ **Whitelist IP** pour restreindre l'accès au webhook
+- ✅ **Mots de passe hashés** avec bcrypt
+- ✅ **Tokens générés cryptographiquement** sécurisés
+
 ### Pour la production :
 
 1. **Utilisez HTTPS** (obligatoire pour les Service Workers)
-2. **Protégez le webhook** avec une authentification
-3. **Ajoutez un reverse proxy** (nginx, Caddy, Traefik)
-4. **Limitez les requêtes** (rate limiting)
+2. **Configurez JWT_SECRET** dans `.env` avec une valeur aléatoire forte
+3. **Utilisez la whitelist IP** pour les tokens webhook
+4. **Ajoutez un reverse proxy** (nginx, Caddy, Traefik)
+5. **Limitez les requêtes** (rate limiting)
+6. **Sauvegardez régulièrement** la base de données
 
 ### Exemple de configuration nginx :
 

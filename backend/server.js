@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./db');
 const pushService = require('./push-service');
+const auth = require('./auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,12 +18,189 @@ app.use((req, res, next) => {
   next();
 });
 
+// === AUTHENTICATION ENDPOINTS ===
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
+    }
+
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = db.getUserByUsername(username);
+    if (existingUser) {
+      return res.status(400).json({ error: 'Nom d\'utilisateur déjà utilisé' });
+    }
+
+    // Hasher le mot de passe
+    const passwordHash = await auth.hashPassword(password);
+
+    // Créer l'utilisateur
+    const userId = db.createUser(username, passwordHash);
+
+    if (!userId) {
+      return res.status(500).json({ error: 'Erreur lors de la création de l\'utilisateur' });
+    }
+
+    // Générer un token
+    const token = auth.generateToken(userId, username);
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: { id: userId, username }
+    });
+
+  } catch (error) {
+    console.error('Register error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis' });
+    }
+
+    // Récupérer l'utilisateur
+    const user = db.getUserByUsername(username);
+
+    if (!user) {
+      return res.status(401).json({ error: 'Identifiants invalides' });
+    }
+
+    // Vérifier le mot de passe
+    const isValid = await auth.verifyPassword(password, user.password_hash);
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Identifiants invalides' });
+    }
+
+    // Générer un token
+    const token = auth.generateToken(user.id, user.username);
+
+    res.json({
+      success: true,
+      token,
+      user: { id: user.id, username: user.username }
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/auth/verify', (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ valid: false });
+  }
+
+  const token = authHeader.substring(7);
+  const decoded = auth.verifyToken(token);
+
+  if (!decoded) {
+    return res.status(401).json({ valid: false });
+  }
+
+  res.json({ valid: true, user: decoded });
+});
+
+// === WEBHOOK TOKEN MANAGEMENT ===
+app.get('/api/webhook-tokens', auth.requireAuth.bind(auth), (req, res) => {
+  try {
+    const tokens = db.getAllWebhookTokens();
+    res.json({ success: true, tokens });
+  } catch (error) {
+    console.error('Get tokens error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/webhook-tokens', auth.requireAuth.bind(auth), (req, res) => {
+  try {
+    const { name, ipWhitelist } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Le nom est requis' });
+    }
+
+    const token = auth.generateWebhookToken();
+    const tokenId = db.createWebhookToken(token, name, ipWhitelist || null);
+
+    if (!tokenId) {
+      return res.status(500).json({ error: 'Erreur lors de la création du token' });
+    }
+
+    res.status(201).json({
+      success: true,
+      token: { id: tokenId, token, name, ip_whitelist: ipWhitelist }
+    });
+
+  } catch (error) {
+    console.error('Create token error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.delete('/api/webhook-tokens/:id', auth.requireAuth.bind(auth), (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    db.deleteWebhookToken(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete token error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.patch('/api/webhook-tokens/:id/toggle', auth.requireAuth.bind(auth), (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { isActive } = req.body;
+    db.toggleWebhookToken(id, isActive);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Toggle token error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // === WEBHOOK ENDPOINT ===
 app.post('/webhook', async (req, res) => {
   try {
     const { message, status } = req.body;
+    const token = req.headers['x-webhook-token'] || req.query.token;
+    const clientIP = auth.getClientIP(req);
 
-    // Validation
+    // Validation du token
+    if (!token) {
+      return res.status(401).json({ error: 'Token webhook requis' });
+    }
+
+    const webhookToken = db.getWebhookToken(token);
+
+    if (!webhookToken) {
+      return res.status(401).json({ error: 'Token webhook invalide ou inactif' });
+    }
+
+    // Vérification de la whitelist IP
+    if (!auth.checkIPWhitelist(clientIP, webhookToken.ip_whitelist)) {
+      console.log(`❌ IP rejected: ${clientIP} (whitelist: ${webhookToken.ip_whitelist})`);
+      return res.status(403).json({ error: 'IP non autorisée' });
+    }
+
+    // Validation du contenu
     if (!message || !status) {
       return res.status(400).json({
         error: 'Missing required fields: message and status'
@@ -35,9 +213,12 @@ app.post('/webhook', async (req, res) => {
       });
     }
 
+    // Mettre à jour la dernière utilisation du token
+    db.updateWebhookTokenLastUsed(token);
+
     // Enregistrer la notification dans la DB
     const notificationId = db.addNotification(message, status);
-    console.log(`✓ Notification saved (ID: ${notificationId})`);
+    console.log(`✓ Notification saved (ID: ${notificationId}) from ${webhookToken.name} (${clientIP})`);
 
     // Récupérer la notification complète
     const notification = db.getNotificationById(notificationId);
