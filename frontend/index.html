@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="PBS Notify - Notifications de sauvegarde Proxmox">
+  <meta name="theme-color" content="#1e293b">
+  <title>PBS Notify</title>
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📦 PBS Notify</h1>
+      <p class="subtitle">Notifications de sauvegarde Proxmox</p>
+    </header>
+
+    <!-- Section d'abonnement -->
+    <section class="subscription-card">
+      <h2>🔔 Notifications Push</h2>
+      <p id="subscription-status" class="status-text">Chargement...</p>
+      <button id="subscribe-btn" class="btn" disabled>
+        <span class="btn-text">Activer les notifications</span>
+      </button>
+    </section>
+
+    <!-- Statistiques -->
+    <section class="stats-card">
+      <h2>📊 Statistiques</h2>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-value" id="total-notifications">-</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-item success">
+          <div class="stat-value" id="success-count">-</div>
+          <div class="stat-label">Succès</div>
+        </div>
+        <div class="stat-item error">
+          <div class="stat-value" id="error-count">-</div>
+          <div class="stat-label">Erreurs</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Historique des notifications -->
+    <section class="notifications-card">
+      <div class="section-header">
+        <h2>📜 Historique</h2>
+        <button id="refresh-btn" class="btn-icon" title="Actualiser">
+          🔄
+        </button>
+      </div>
+      <div id="notifications-list" class="notifications-list">
+        <p class="loading">Chargement des notifications...</p>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <p>PBS Notify v1.0 | <a href="https://github.com/yourusername/pbsnotify" target="_blank">GitHub</a></p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

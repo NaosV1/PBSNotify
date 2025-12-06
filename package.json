@@ -1,0 +1,21 @@
+{
+  "name": "pbs-notify",
+  "version": "1.0.0",
+  "description": "Web push notification system for Proxmox Backup Server",
+  "scripts": {
+    "start": "./start.sh",
+    "backend": "cd backend && npm start",
+    "backend:dev": "cd backend && npm run dev",
+    "install-all": "cd backend && npm install",
+    "icons": "./create-icons.sh"
+  },
+  "keywords": [
+    "proxmox",
+    "backup",
+    "notifications",
+    "pwa",
+    "web-push"
+  ],
+  "author": "",
+  "license": "MIT"
+}
