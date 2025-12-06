@@ -57,12 +57,25 @@ cp .env.example .env
 Éditez le fichier `.env` et ajoutez vos clés :
 
 ```env
-VAPID_PUBLIC_KEY=votre_clé_publique
-VAPID_PRIVATE_KEY=votre_clé_privée
-VAPID_SUBJECT=mailto:votre-email@example.com
-JWT_SECRET=votre_jwt_secret
+# Port du serveur
 PORT=3000
+
+# Clés VAPID pour les notifications push
+VAPID_PUBLIC_KEY=votre_clé_publique_vapid
+VAPID_PRIVATE_KEY=votre_clé_privée_vapid
+VAPID_SUBJECT=mailto:votre-email@example.com
+
+# Secret JWT pour l'authentification (généré avec openssl rand -hex 32)
+JWT_SECRET=votre_secret_jwt_aleatoire_64_caracteres
+
+# Chemin de la base de données (Docker seulement)
+DB_PATH=/app/backend/data
 ```
+
+**Important :**
+- Le `JWT_SECRET` doit être une chaîne aléatoire de 64 caractères minimum
+- Ne partagez jamais vos clés VAPID ou JWT_SECRET
+- Le système n'autorise qu'un seul compte administrateur
 
 #### 4. Lancer avec Docker Compose
 
@@ -71,6 +84,15 @@ docker-compose up -d
 ```
 
 L'application sera accessible sur `http://localhost:3000`
+
+#### 5. Créer votre compte administrateur
+
+Lors de votre première connexion :
+1. Accédez à `http://localhost:3000`
+2. Vous serez redirigé vers la page de login
+3. Cliquez sur l'onglet **"Inscription"**
+4. Créez votre compte (seul le premier compte sera autorisé)
+5. Vous serez automatiquement connecté
 
 #### Commandes utiles Docker
 
@@ -86,6 +108,12 @@ docker-compose up -d --build
 
 # Voir le statut
 docker-compose ps
+
+# Accéder au shell du conteneur
+docker exec -it pbs-notify sh
+
+# Réinitialiser le mot de passe (dans le conteneur)
+docker exec -it pbs-notify node reset-password.js
 ```
 
 #### Persistance des données
@@ -195,11 +223,18 @@ curl -X POST http://localhost:3000/webhook \
 
 ### 1. Première connexion et création de compte
 
-Accédez à `http://localhost:3000/login.html` et créez votre premier compte administrateur.
+**Important :** Le système n'autorise qu'un seul compte administrateur. Le premier utilisateur à s'inscrire sera le seul à pouvoir accéder à l'application.
+
+1. Accédez à `http://localhost:3000` (vous serez redirigé vers `/login`)
+2. Cliquez sur l'onglet **"Inscription"** (visible uniquement s'il n'y a pas encore de compte)
+3. Créez votre compte administrateur
+4. Vous serez automatiquement connecté et redirigé vers le tableau de bord
+
+**Note :** Si un compte existe déjà, seul l'onglet "Connexion" sera visible.
 
 ### 2. Créer un token webhook
 
-1. Connectez-vous à l'administration : `http://localhost:3000/admin.html`
+1. Accédez à l'administration : `http://localhost:3000/admin` (ou cliquez sur "Administration" dans le header)
 2. Cliquez sur **"+ Nouveau token"**
 3. Donnez un nom au token (ex: "Proxmox PBS")
 4. (Optionnel) Ajoutez des IPs autorisées séparées par des virgules
@@ -333,52 +368,79 @@ Reçoit les notifications de Proxmox
 }
 ```
 
-### POST /subscribe
+### Notifications et Push (nécessite authentification)
+
+#### POST /subscribe
 Enregistre un nouvel abonnement push
 
-### POST /unsubscribe
+**Headers:** `Authorization: Bearer <token>`
+
+#### POST /unsubscribe
 Supprime un abonnement
 
-### GET /notifications
+**Headers:** `Authorization: Bearer <token>`
+
+#### GET /notifications
 Liste toutes les notifications (limite : 100)
+
+**Headers:** `Authorization: Bearer <token>`
 
 **Query params:**
 - `limit` (optionnel) : nombre de notifications à retourner
 
-### GET /notifications/:id
+#### GET /notifications/:id
 Récupère une notification spécifique
 
-### GET /vapid-public-key
+**Headers:** `Authorization: Bearer <token>`
+
+#### GET /vapid-public-key
 Retourne la clé publique VAPID pour les abonnements
 
-### GET /health
-Statut du serveur
+**Headers:** `Authorization: Bearer <token>`
+
+### Autres endpoints
+
+#### GET /health
+Statut du serveur (pas d'authentification requise)
+
+#### GET /api/auth/has-users
+Vérifie si un utilisateur existe déjà dans le système
+
+**Response:**
+```json
+{
+  "hasUsers": true
+}
+```
 
 ## 🗂️ Structure du projet
 
 ```
 PBSNotify/
 ├── backend/
-│   ├── server.js           # Serveur Express avec API
+│   ├── server.js           # Serveur Express avec API et routes
 │   ├── db.js               # Gestion SQLite (users, tokens, notifs)
 │   ├── auth.js             # Authentification JWT et bcrypt
 │   ├── push-service.js     # Service de push notifications
+│   ├── reset-password.js   # Script de réinitialisation du mot de passe
 │   ├── package.json
 │   └── .env.example
 ├── frontend/
-│   ├── index.html          # Interface PWA principale
-│   ├── login.html          # Page de connexion
+│   ├── index.html          # Interface PWA principale (auth requise)
+│   ├── login.html          # Page de connexion/inscription
 │   ├── admin.html          # Panneau d'administration
 │   ├── app.js              # Logique frontend principale
 │   ├── admin.js            # Logique administration
-│   ├── service-worker.js   # Service Worker
-│   ├── style.css           # Styles
+│   ├── service-worker.js   # Service Worker pour PWA
+│   ├── style.css           # Styles globaux
 │   └── manifest.json       # Configuration PWA
 ├── Dockerfile              # Configuration Docker
 ├── docker-compose.yml      # Orchestration Docker
 ├── .dockerignore           # Fichiers à exclure de Docker
-├── .env.example            # Variables d'environnement
-└── README.md
+├── .env.example            # Exemple de variables d'environnement
+├── reset-password.sh       # Script shell pour réinitialiser le mot de passe
+├── RESET_PASSWORD.md       # Documentation du script de reset
+└── README.md               # Documentation principale
 ```
 
 ## 🎨 Personnalisation
@@ -414,11 +476,14 @@ webpush.setVapidDetails(
 
 ### Fonctionnalités de sécurité intégrées
 
-- ✅ **Authentification JWT** pour l'accès à l'administration
+- ✅ **Authentification JWT** pour l'accès à toutes les pages
+- ✅ **Compte unique** - Un seul compte administrateur autorisé
 - ✅ **Tokens webhook** uniques et révocables
 - ✅ **Whitelist IP** pour restreindre l'accès au webhook
-- ✅ **Mots de passe hashés** avec bcrypt
-- ✅ **Tokens générés cryptographiquement** sécurisés
+- ✅ **Mots de passe hashés** avec bcrypt (10 rounds)
+- ✅ **Tokens générés cryptographiquement** sécurisés (32 bytes)
+- ✅ **Protection des routes** - Toutes les pages et API nécessitent une authentification
+- ✅ **Script de récupération** pour réinitialiser le mot de passe en cas d'oubli
 
 ### Pour la production :
 
@@ -469,15 +534,46 @@ server {
 1. Vérifiez les permissions du dossier backend
 2. Vérifiez que better-sqlite3 est bien installé
 
+### Mot de passe oublié
+
+Si vous avez oublié vos identifiants, vous pouvez réinitialiser le mot de passe :
+
+**Installation Docker :**
+```bash
+docker exec -it pbs-notify node reset-password.js
+```
+
+**Installation manuelle :**
+```bash
+./reset-password.sh
+```
+
+Ou directement avec Node.js :
+```bash
+cd backend
+node reset-password.js
+```
+
+**Le script vous offre deux options :**
+
+1. **Réinitialiser le mot de passe** - Change le mot de passe sans supprimer le compte
+2. **Supprimer le compte** - Supprime le compte pour en créer un nouveau via `/login`
+
+**Note :** Le système est configuré pour n'accepter qu'un seul compte administrateur. Voir la [documentation complète](RESET_PASSWORD.md) pour plus de détails.
+
 ## 📝 TODO / Améliorations futures
 
-- [ ] Authentification pour le webhook
+- [x] Authentification complète (JWT)
+- [x] Gestion des tokens webhook avec whitelist IP
+- [x] Script de réinitialisation du mot de passe
+- [x] Routes Express pour toutes les pages
 - [ ] Support multi-canaux (Discord, Telegram, Email)
 - [ ] Filtres de notifications
 - [ ] Dashboard avec graphiques
 - [ ] Notifications planifiées
 - [ ] Export des notifications (CSV, JSON)
 - [ ] Mode sombre/clair
+- [ ] Gestion multi-utilisateurs (avec rôles)
 
 ## 📄 Licence
 

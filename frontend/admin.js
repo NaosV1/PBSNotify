@@ -17,7 +17,7 @@ const tokenResult = document.getElementById('token-result');
 // Vérifier l'authentification
 async function checkAuth() {
   if (!authToken) {
-    window.location.href = '/login.html';
+    window.location.href = '/login';
     return false;
   }
 
@@ -31,7 +31,7 @@ async function checkAuth() {
     if (!data.valid) {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('username');
-      window.location.href = '/login.html';
+      window.location.href = '/login';
       return false;
     }
 
@@ -40,7 +40,7 @@ async function checkAuth() {
 
   } catch (error) {
     console.error('Auth error:', error);
-    window.location.href = '/login.html';
+    window.location.href = '/login';
     return false;
   }
 }
@@ -49,7 +49,7 @@ async function checkAuth() {
 logoutBtn.addEventListener('click', () => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('username');
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 });
 
 // Charger les tokens

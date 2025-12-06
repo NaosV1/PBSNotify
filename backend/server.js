@@ -31,10 +31,10 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 6 caractères' });
     }
 
-    // Vérifier si l'utilisateur existe déjà
-    const existingUser = db.getUserByUsername(username);
-    if (existingUser) {
-      return res.status(400).json({ error: 'Nom d\'utilisateur déjà utilisé' });
+    // Vérifier si un utilisateur existe déjà (limite à un seul compte)
+    const allUsers = db.getAllUsers();
+    if (allUsers.length > 0) {
+      return res.status(403).json({ error: 'Impossible : un compte existe déjà' });
     }
 
     // Hasher le mot de passe
@@ -114,6 +114,11 @@ app.get('/api/auth/verify', (req, res) => {
   }
 
   res.json({ valid: true, user: decoded });
+});
+
+app.get('/api/auth/has-users', (req, res) => {
+  const users = db.getAllUsers();
+  res.json({ hasUsers: users.length > 0 });
 });
 
 // === WEBHOOK TOKEN MANAGEMENT ===
@@ -244,7 +249,7 @@ app.post('/webhook', async (req, res) => {
 });
 
 // === SUBSCRIPTION ENDPOINTS ===
-app.post('/subscribe', (req, res) => {
+app.post('/subscribe', auth.requireAuth.bind(auth), (req, res) => {
   try {
     const subscription = req.body;
 
@@ -267,7 +272,7 @@ app.post('/subscribe', (req, res) => {
   }
 });
 
-app.post('/unsubscribe', (req, res) => {
+app.post('/unsubscribe', auth.requireAuth.bind(auth), (req, res) => {
   try {
     const { endpoint } = req.body;
 
@@ -286,12 +291,12 @@ app.post('/unsubscribe', (req, res) => {
 });
 
 // === VAPID PUBLIC KEY ===
-app.get('/vapid-public-key', (req, res) => {
+app.get('/vapid-public-key', auth.requireAuth.bind(auth), (req, res) => {
   res.json({ publicKey: pushService.getPublicKey() });
 });
 
 // === NOTIFICATIONS ENDPOINTS ===
-app.get('/notifications', (req, res) => {
+app.get('/notifications', auth.requireAuth.bind(auth), (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const notifications = db.getNotifications(limit);
@@ -308,7 +313,7 @@ app.get('/notifications', (req, res) => {
   }
 });
 
-app.get('/notifications/:id', (req, res) => {
+app.get('/notifications/:id', auth.requireAuth.bind(auth), (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const notification = db.getNotificationById(id);
@@ -334,8 +339,35 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Servir le frontend en production
-app.use(express.static('../frontend'));
+// === PAGE ROUTES ===
+const path = require('path');
+const frontendPath = path.join(__dirname, '../frontend');
+
+// Page d'accueil (publique)
+app.get('/', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// Page de login
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'login.html'));
+});
+
+app.get('/login.html', (req, res) => {
+  res.redirect('/login');
+});
+
+// Page d'administration (sera protégée côté client)
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(frontendPath, 'admin.html'));
+});
+
+app.get('/admin.html', (req, res) => {
+  res.redirect('/admin');
+});
+
+// Servir les fichiers statiques (CSS, JS, images, etc.)
+app.use(express.static(frontendPath));
 
 // Démarrage du serveur
 app.listen(PORT, () => {

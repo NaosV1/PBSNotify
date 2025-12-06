@@ -153,6 +153,7 @@
     const errorMessage = document.getElementById('error-message');
     const submitBtn = document.getElementById('submit-btn');
     const tabButtons = document.querySelectorAll('.tab-button');
+    const formTabs = document.querySelector('.form-tabs');
 
     // Gérer les onglets
     tabButtons.forEach(button => {
@@ -199,7 +200,7 @@
         localStorage.setItem('username', data.user.username);
 
         // Rediriger vers le panneau admin
-        window.location.href = '/admin.html';
+        window.location.href = '/admin';
 
       } catch (error) {
         errorMessage.textContent = error.message;
@@ -218,10 +219,24 @@
       .then(res => res.json())
       .then(data => {
         if (data.valid) {
-          window.location.href = '/admin.html';
+          window.location.href = '/admin';
         }
       });
     }
+
+    // Vérifier si un utilisateur existe déjà (pour cacher l'onglet inscription)
+    fetch(`${API_BASE_URL}/api/auth/has-users`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.hasUsers) {
+          // Cacher l'onglet inscription
+          formTabs.style.display = 'none';
+          currentMode = 'login';
+        }
+      })
+      .catch(err => {
+        console.error('Error checking users:', err);
+      });
   </script>
 </body>
 </html>

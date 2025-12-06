@@ -14,9 +14,46 @@ const totalNotifications = document.getElementById('total-notifications');
 const successCount = document.getElementById('success-count');
 const errorCount = document.getElementById('error-count');
 
+// === AUTHENTICATION CHECK ===
+async function checkAuth() {
+  const token = localStorage.getItem('auth_token');
+
+  if (!token) {
+    window.location.href = '/login';
+    return false;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/verify`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    const data = await response.json();
+
+    if (!data.valid) {
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('username');
+      window.location.href = '/login';
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[App] Auth error:', error);
+    window.location.href = '/login';
+    return false;
+  }
+}
+
 // === INITIALIZATION ===
 async function init() {
   console.log('[App] Initializing...');
+
+  // Vérifier l'authentification d'abord
+  const isAuthenticated = await checkAuth();
+  if (!isAuthenticated) {
+    return;
+  }
 
   // Vérifier le support des notifications
   if (!('serviceWorker' in navigator)) {
@@ -59,7 +96,10 @@ async function init() {
 // === VAPID ===
 async function fetchVapidPublicKey() {
   try {
-    const response = await fetch(`${API_BASE_URL}/vapid-public-key`);
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(`${API_BASE_URL}/vapid-public-key`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     const data = await response.json();
     vapidPublicKey = data.publicKey;
     console.log('[App] VAPID public key fetched');
@@ -112,10 +152,12 @@ async function subscribe() {
     console.log('[App] Push subscription:', subscription);
 
     // Envoyer l'abonnement au serveur
+    const token = localStorage.getItem('auth_token');
     const response = await fetch(`${API_BASE_URL}/subscribe`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(subscription)
     });
@@ -146,10 +188,12 @@ async function unsubscribe() {
       await subscription.unsubscribe();
 
       // Informer le serveur
+      const token = localStorage.getItem('auth_token');
       await fetch(`${API_BASE_URL}/unsubscribe`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ endpoint: subscription.endpoint })
       });
@@ -172,7 +216,10 @@ async function loadNotifications() {
   try {
     notificationsList.innerHTML = '<div class="loading">Chargement des notifications...</div>';
 
-    const response = await fetch(`${API_BASE_URL}/notifications?limit=50`);
+    const token = localStorage.getItem('auth_token');
+    const response = await fetch(`${API_BASE_URL}/notifications?limit=50`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
     const data = await response.json();
 
     if (data.success && data.notifications.length > 0) {
